@@ -4,11 +4,14 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import matplotlib
+matplotlib.use('Agg') # Trava de segurança para não estourar a Memória RAM do servidor
 import matplotlib.pyplot as plt
 import seaborn as sns
 import zipfile
 import io
-import gc  # Biblioteca para forçar a limpeza da Memória RAM
+import gc
+import uuid # <--- NOVA BIBLIOTECA: Gera "RGs" únicos para os gráficos no HTML
 
 # ==========================================
 # 0. CONFIGURAÇÃO DA PÁGINA STREAMLIT
@@ -242,7 +245,8 @@ if uploaded_file is not None:
                             if any(a is not None for a in alarms): fig_box.add_trace(go.Scatter(x=labels_potencia_base, y=alarms, mode='markers', marker=dict(symbol='line-ew', size=40, color='#FFCC00', line=dict(color='#FFCC00', width=4)), showlegend=False), row=1, col=col_idx)
                             if any(t is not None for t in trips): fig_box.add_trace(go.Scatter(x=labels_potencia_base, y=trips, mode='markers', marker=dict(symbol='line-ew', size=40, color='red', line=dict(color='red', width=4)), showlegend=False), row=1, col=col_idx)
 
-                    html_content += f'<div class="grafico-container">{fig_box.to_html(full_html=False, include_plotlyjs=False, default_width="100%")}</div>\n'
+                    id_box = f"plot_{uuid.uuid4().hex}" # ID Único para evitar sobreposição
+                    html_content += f'<div class="grafico-container">{fig_box.to_html(full_html=False, include_plotlyjs=False, div_id=id_box)}</div>\n'
 
                     # --- 2. HTML PLOTLY: BOXPLOT EXECUTIVO COM P99 ---
                     fig_exec = px.box(df_atual_melt, x='Range_Plotly', y='Valor', facet_col='Eixo', points='outliers',
@@ -266,7 +270,8 @@ if uploaded_file is not None:
                             if any(a is not None for a in alarms): fig_exec.add_trace(go.Scatter(x=list(labels_base_com_n.values()), y=alarms, mode='markers', marker=dict(symbol='line-ew', size=40, color='#FFCC00', line=dict(color='#FFCC00', width=4)), showlegend=False), row=1, col=col_idx)
                             if any(t is not None for t in trips): fig_exec.add_trace(go.Scatter(x=list(labels_base_com_n.values()), y=trips, mode='markers', marker=dict(symbol='line-ew', size=40, color='red', line=dict(color='red', width=4)), showlegend=False), row=1, col=col_idx)
                     
-                    html_content += f'<div class="grafico-container">{fig_exec.to_html(full_html=False, include_plotlyjs=False, default_width="100%")}</div>\n'
+                    id_exec = f"plot_{uuid.uuid4().hex}" # ID Único para evitar sobreposição
+                    html_content += f'<div class="grafico-container">{fig_exec.to_html(full_html=False, include_plotlyjs=False, div_id=id_exec)}</div>\n'
 
                     # --- GERAÇÃO IMAGEM ESTÁTICA ULTRAWIDE NO BUFFER ---
                     fig_static_box, axes_box = plt.subplots(1, len(eixos_unicos), figsize=(24, 12), sharey=True)
@@ -322,7 +327,7 @@ if uploaded_file is not None:
                     zip_file.writestr(f"01_Boxplot_Executivo_{macro_nome}_{micro_nome.replace('.','')}.png", img_buffer_box.getvalue())
                     plt.close('all')
                     img_buffer_box.close()
-                    gc.collect() # Libera RAM imediatamente
+                    gc.collect()
 
                     # --- 3. HTML PLOTLY: TENDÊNCIA DINÂMICA ---
                     if is_temp:
@@ -349,7 +354,8 @@ if uploaded_file is not None:
                         fig_tend.add_trace(go.Scatter(x=df_presente[col_data], y=df_presente[col_pot], name="Potência (MW)", line=dict(color='orange', width=2)), row=len(cols_existentes)+1, col=1)
                         fig_tend.update_layout(title=f'Tendência Dinâmica: {macro_nome} {micro_nome}', hovermode="x unified", template="plotly_white", height=300*(len(cols_existentes)+1), margin=dict(l=20, r=20, t=50, b=20))
                         
-                    html_content += f'<div class="grafico-container">{fig_tend.to_html(full_html=False, include_plotlyjs=False, default_width="100%")}</div>\n'
+                    id_tend = f"plot_{uuid.uuid4().hex}" # ID Único para evitar sobreposição
+                    html_content += f'<div class="grafico-container">{fig_tend.to_html(full_html=False, include_plotlyjs=False, div_id=id_tend)}</div>\n'
                     
                     # --- 4. GERAÇÃO IMAGEM ESTÁTICA DA TENDÊNCIA NO BUFFER ---
                     if is_temp:
@@ -384,7 +390,7 @@ if uploaded_file is not None:
                     zip_file.writestr(f"02_Tendencia_Executiva_{macro_nome}_{micro_nome.replace('.','')}.png", img_buffer_tend.getvalue())
                     plt.close('all')
                     img_buffer_tend.close()
-                    gc.collect() # Libera RAM imediatamente
+                    gc.collect()
 
                     # --- 5. TABELA DE VALIDAÇÃO DA MÉDIA DE 90% (INSERIDA NO HTML) ---
                     tabela_auditoria = []
