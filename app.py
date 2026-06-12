@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import zipfile
 import io
+import gc  # Biblioteca para forçar a limpeza da Memória RAM
 
 # ==========================================
 # 0. CONFIGURAÇÃO DA PÁGINA STREAMLIT
@@ -81,12 +82,12 @@ def formatar_nome_eixo(short_name, is_temp=False):
     return f"Eixo {short_name.split('-')[-1]}°" if '-' in short_name and short_name.split('-')[-1] in ['0', '90'] else "Eixo Único"
 
 # ==========================================
-# 3. UPLOAD DO ARQUIVO
+# 3. UPLOAD DO ARQUIVO E PROCESSAMENTO
 # ==========================================
 uploaded_file = st.file_uploader("Carregue a base de dados em Excel", type=["xlsx", "xls"])
 
 if uploaded_file is not None:
-    with st.spinner("Processando dados, gerando dashboard em HTML e salvando imagens HD. Isso pode levar alguns segundos..."):
+    with st.spinner("Processando dados, gerando dashboard HTML e exportando Imagens HD. Isso levará alguns segundos..."):
         df_presente = pd.read_excel(uploaded_file, sheet_name='Presente')
         df_passado = pd.read_excel(uploaded_file, sheet_name='Passado')
 
@@ -317,9 +318,11 @@ if uploaded_file is not None:
                     plt.tight_layout()
                     
                     img_buffer_box = io.BytesIO()
-                    fig_static_box.savefig(img_buffer_box, format="png", dpi=300, bbox_inches='tight')
+                    fig_static_box.savefig(img_buffer_box, format="png", dpi=250, bbox_inches='tight')
                     zip_file.writestr(f"01_Boxplot_Executivo_{macro_nome}_{micro_nome.replace('.','')}.png", img_buffer_box.getvalue())
-                    plt.close(fig_static_box)
+                    plt.close('all')
+                    img_buffer_box.close()
+                    gc.collect() # Libera RAM imediatamente
 
                     # --- 3. HTML PLOTLY: TENDÊNCIA DINÂMICA ---
                     if is_temp:
@@ -377,9 +380,11 @@ if uploaded_file is not None:
                     plt.tight_layout()
                     
                     img_buffer_tend = io.BytesIO()
-                    fig_static_tend.savefig(img_buffer_tend, format="png", dpi=300, bbox_inches='tight')
+                    fig_static_tend.savefig(img_buffer_tend, format="png", dpi=250, bbox_inches='tight')
                     zip_file.writestr(f"02_Tendencia_Executiva_{macro_nome}_{micro_nome.replace('.','')}.png", img_buffer_tend.getvalue())
-                    plt.close(fig_static_tend)
+                    plt.close('all')
+                    img_buffer_tend.close()
+                    gc.collect() # Libera RAM imediatamente
 
                     # --- 5. TABELA DE VALIDAÇÃO DA MÉDIA DE 90% (INSERIDA NO HTML) ---
                     tabela_auditoria = []
@@ -423,12 +428,10 @@ if uploaded_file is not None:
             setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 200);
             </script></body></html>"""
             
-            # Salva o arquivo HTML interativo dentro do ZIP
             zip_file.writestr(f"00_Dashboard_Interativo_{UNIDADE_ALVO}.html", html_content.encode('utf-8'))
 
         st.success("Análise concluída com sucesso!")
         
-        # O botão de download agora baixa o ZIP que contém os PNGs e o arquivo HTML
         st.download_button(
             label="📦 Baixar Relatório Completo (.zip)",
             data=zip_buffer.getvalue(),
